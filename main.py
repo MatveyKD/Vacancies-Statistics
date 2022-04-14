@@ -142,14 +142,178 @@ def get_vacancies_superjob(key):
                 salary = predict_rub_salary_sj(vacancy)
                 if salary:
                     count_of_language[language]["average"] += salary
-                    count_of_language[language]["processed"] += 1
-                    count_of_language[language]["found"] += res_json["total"]
+import os
+from itertools import count
 
-            if not res_json['more']:
-                    break
-        if count_of_language[language]["processed"] != 0:
-            count_of_language[language]["average"] //= count_of_language[language]["processed"]
+import requests
+from terminaltables import AsciiTable
+from dotenv import load_dotenv
+
+
+def predict_salary(from_salary, to_salary):
+    if from_salary:
+        if to_salary:
+            return (from_salary + to_salary) / 2
+        return from_salary * 1.2
+    elif to_salary:
+        return to_salary * 0.8
+    return None
+
+
+def predict_rub_salary_hh(vacancy):
+    if vacancy["salary"]:
+        from_salary = vacancy["salary"]["from"]
+        to_salary = vacancy["salary"]["to"]
+        valute = vacancy["salary"]["currency"]
+        if valute == "RUR":
+            return predict_salary(from_salary, to_salary)
+    return None
+
+
+def predict_rub_salary_sj(vacancy):
+    payment_from = vacancy["payment_from"]
+    payment_to = vacancy["payment_to"]
+    valute = vacancy["currency"]
+    if valute == "rub":
+        return predict_salary(payment_from, payment_to)
+    return None
+
+
+def get_vacancies_hhru():
+    count_of_language = {
+        "Python": {},
+        "Java": {},
+        "C++": {},
+        "C#": {},
+        "Rust": {},
+        "Assembly": {},
+        "1C": {}
+    }
+
+    for language in count_of_language:
+        found, processed, average = get_language_stats_hh(language)
+        count_of_language[language] = {
+            "found": found,
+            "processed": processed,
+            "average": average
+        }
+
     return count_of_language
+
+
+def get_language_stats_hh(language):
+    found = 0
+    processed = 0
+    average = 0
+
+    url = "https://api.hh.ru/vacancies"
+
+    for page in count(0):
+        payload = {
+            "text": f"Программист {language}",
+            "area": 1,
+            "page": page,
+            "per_page": 100
+        }
+
+        response = requests.get(url, params=payload)
+        try:
+            response.raise_for_status()
+        except:
+            break
+                
+        res_json = response.json()
+        for vacancy in res_json["items"]:
+            salary = predict_rub_salary_hh(vacancy)
+            if salary:
+                average += salary
+                processed += 1
+        found += res_json["found"]
+
+        if page >= res_json['pages'] - 1:
+                break
+
+    if processed != 0:
+        average //= processed
+
+    return found, processed, average
+
+
+def register_superjob(key):
+    url = "https://api.superjob.ru/2.0/oauth2/password/"
+    payload = {
+        "login": os.environ.get('LOGIN'),
+        "password": os.environ.get('PASSWORD'),
+        "client_id": int(os.environ.get('CLIENT_ID')),
+        "client_secret": key
+    }
+    response = requests.get(url, params=payload)
+    response.raise_for_status()
+    return response.json()["access_token"]
+
+
+def get_vacancies_superjob(key):
+    count_of_language = {
+        "Python": {},
+        "Java": {},
+        "JS": {},
+        "C++": {},
+        "C#": {},
+        "PHP": {},
+        "1C": {}
+    }
+
+    for language in count_of_language:
+        found, processed, average = get_language_stats_sj(language, key)
+        count_of_language[language] = {
+            "found": found,
+            "processed": processed,
+            "average": average
+        }
+
+    return count_of_language
+
+def get_language_stats_sj(language, key):
+    found = 0
+    processed = 0
+    average = 0
+
+    url = "https://api.superjob.ru/2.0/vacancies/"
+    headers = {
+        "X-Api-App-Id": key,
+        "Authorization": f"Bearer {register_superjob(key)}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    
+    for page in count(0):
+        payload = {
+            "keyword": f'Программист {language}',
+            "town": 4,
+            "page": page,
+            "count": 100
+        }
+        response = requests.get(url, headers=headers, params=payload)
+        try:
+            response.raise_for_status()
+        except:
+            break
+
+        res_json = response.json()
+        for vacancy in res_json["objects"]:
+            salary = predict_rub_salary_sj(vacancy)
+            if salary:
+                average += salary
+                processed += 1
+
+        found += res_json["total"]
+
+        if not res_json['more']:
+                break
+
+    if processed != 0:
+        average //= processed
+
+    return found, processed, average
 
 
 def return_beautiful_table(statistics, title):
