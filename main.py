@@ -6,19 +6,16 @@ from terminaltables import AsciiTable
 from dotenv import load_dotenv
 
 
-load_dotenv()
-
-
-
 def predict_salary(from_salary, to_salary):
     if from_salary:
         if to_salary:
             return (from_salary + to_salary) / 2
-        else:
-            return from_salary * 1.2
+        return from_salary * 1.2
     elif to_salary:
         return to_salary * 0.8
     return None
+
+
 def predict_rub_salary_hh(vacancy):
     if vacancy["salary"]:
         from_salary = vacancy["salary"]["from"]
@@ -27,6 +24,7 @@ def predict_rub_salary_hh(vacancy):
         if valute == "RUR":
             return predict_salary(from_salary, to_salary)
     return None
+
 
 def predict_rub_salary_sj(vacancy):
     payment_from = vacancy["payment_from"]
@@ -38,7 +36,8 @@ def predict_rub_salary_sj(vacancy):
 
 
 def get_vacancies_hhru():
-    count_of_lenguage = {
+    count_of_language = {
+        "льорпшшогенгцы637847орпhghjhgydjjknxjzhcnjkdvnxk": {},
         "Python": {},
         "Java": {},
         "C++": {},
@@ -50,38 +49,46 @@ def get_vacancies_hhru():
 
     url = "https://api.hh.ru/vacancies"
 
-    for lenguage in count_of_lenguage:
-        count_of_lenguage[lenguage]["average"] = 0
-        count_of_lenguage[lenguage]["processed"] = 0
+    for language in count_of_language:
+        count_of_language[language]["average"] = 0
+        count_of_language[language]["processed"] = 0
 
         for page in count(0):
             payload = {
-                "text": f"Программист {lenguage}",
+                "text": f"Программист {language}",
                 "area": 1,
                 "page": page,
                 "per_page": 100
             }
 
-            r = requests.get(url, params=payload)
-            r.raise_for_status()
-            for vac in r.json()["items"]:
-                salary = predict_rub_salary_hh(vac)
+            response = requests.get(url, params=payload)
+            try:
+                response.raise_for_status()
+            except:
+                count_of_language[language]["average"] = 0
+                count_of_language[language]["processed"] = 0
+                count_of_language[language]["found"] = 0
+                break
+                
+            res_json = response.json()
+            for vacancy in res_json["items"]:
+                salary = predict_rub_salary_hh(vacancy)
                 if salary:
-                    count_of_lenguage[lenguage]["average"] += salary
-                    count_of_lenguage[lenguage]["processed"] += 1
-            count_of_lenguage[lenguage]["found"] = r.json()["found"]
+                    count_of_language[language]["average"] += salary
+                    count_of_language[language]["processed"] += 1
+            count_of_language[language]["found"] = res_json["found"]
 
-            if page >= r.json()['pages'] - 1:
+            if page >= res_json['pages'] - 1:
                 break
 
-        count_of_lenguage[lenguage]["average"] = count_of_lenguage[lenguage][
-            "average"] // count_of_lenguage[lenguage]["processed"]
+        if count_of_language[language]["processed"] != 0:
+            count_of_language[language]["average"] = count_of_language[language][
+                "average"] // count_of_language[language]["processed"]
 
-    return count_of_lenguage
+    return count_of_language
 
 
-def register_superjob():
-    key = os.environ.get('KEY')
+def register_superjob(key):
     url = "https://api.superjob.ru/2.0/oauth2/password/"
     payload = {
         "login": os.environ.get('LOGIN'),
@@ -89,13 +96,14 @@ def register_superjob():
         "client_id": int(os.environ.get('CLIENT_ID')),
         "client_secret": key
     }
-    r = requests.get(url, params=payload)
-    r.raise_for_status()
-    return r.json()["access_token"]
+    response = requests.get(url, params=payload)
+    response.raise_for_status()
+    return response.json()["access_token"]
 
 
-def get_vacancies_superjob():
-    count_of_lenguage = {
+def get_vacancies_superjob(key):
+    count_of_language = {
+        "linuuuuxerахахахахахахаххаааахаххахахахахахаххахахахахах": {},
         "Python": {},
         "Java": {},
         "JS": {},
@@ -104,42 +112,49 @@ def get_vacancies_superjob():
         "PHP": {},
         "1C": {}
     }
-    
-    key = os.environ.get('KEY')
+
     url = "https://api.superjob.ru/2.0/vacancies/"
     headers = {
         "X-Api-App-Id": key,
-        "Authorization": f"Bearer {register_superjob()}",
+        "Authorization": f"Bearer {register_superjob(key)}",
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    for lenguage in count_of_lenguage:
-        count_of_lenguage[lenguage]["average"] = 0
-        count_of_lenguage[lenguage]["processed"] = 0
-        count_of_lenguage[lenguage]["found"] = 0
+    for language in count_of_language:
+        count_of_language[language]["average"] = 0
+        count_of_language[language]["processed"] = 0
+        count_of_language[language]["found"] = 0
         for page in count(0):
             payload = {
-                "keyword": f'Программист {lenguage}',
+                "keyword": f'Программист {language}',
                 "town": 4,
                 "page": page,
                 "count": 100
             }
-            r = requests.get(url, headers=headers, params=payload)
-            r.raise_for_status()
-            #print(r.json())
-            for vacancy in r.json()["objects"]:
-                #print(vacancy["profession"] + ", Москва, " + str(predict_rub_salary_sj(vacancy)))
+            response = requests.get(url, headers=headers, params=payload)
+            try:
+                response.raise_for_status()
+            except:
+                count_of_language[language]["average"] = 0
+                count_of_language[language]["processed"] = 0
+                count_of_language[language]["found"] = 0
+                break
+
+            res_json = response.json()
+            for vacancy in res_json["objects"]:
                 salary = predict_rub_salary_sj(vacancy)
                 if salary:
-                    count_of_lenguage[lenguage]["average"] += salary
-                    count_of_lenguage[lenguage]["processed"] += 1
-                    count_of_lenguage[lenguage]["found"] += r.json()["total"]
-    
-            if not r.json()['more']:
-                    break
-        count_of_lenguage[lenguage]["average"] //= count_of_lenguage[lenguage]["processed"]
-    return count_of_lenguage
+                    count_of_language[language]["average"] += salary
+                    count_of_language[language]["processed"] += 1
+                    count_of_language[language]["found"] += res_json["total"]
 
-def beautiful_print(statistics, title):
+            if not res_json['more']:
+                    break
+        if count_of_language[language]["processed"] != 0:
+            count_of_language[language]["average"] //= count_of_language[language]["processed"]
+    return count_of_language
+
+
+def return_beautiful_table(statistics, title):
     table_data = [
         (
             "Язык программирования",
@@ -148,11 +163,11 @@ def beautiful_print(statistics, title):
             "Средняя зарплата"
         )
     ]
-    for lenguage in statistics:
-        info = statistics[lenguage]
+    for language in statistics:
+        info = statistics[language]
         table_data.append(
             (
-                lenguage,
+                language,
                 info["found"],
                 info["processed"],
                 info["average"]
@@ -162,17 +177,20 @@ def beautiful_print(statistics, title):
     table_instance = AsciiTable(table_data, title)
     table_instance.justify_columns[2] = 'right'
     return table_instance.table
-    
+
 
 if __name__ == "__main__":
+    load_dotenv()
+    sj_key = os.environ.get('KEY')
     print(
-        beautiful_print(
+        return_beautiful_table(
             get_vacancies_hhru(),
             "HeadHunter Moscow"
         ),
         end="\n\n"
     )
-    print(beautiful_print(
-        get_vacancies_superjob(),
-        "SuperJob Moscow"
+    print(
+        return_beautiful_table(
+            get_vacancies_superjob(sj_key),
+            "SuperJob Moscow"
     ))
