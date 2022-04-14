@@ -37,7 +37,6 @@ def predict_rub_salary_sj(vacancy):
 
 def get_vacancies_hhru():
     count_of_language = {
-        "льорпшшогенгцы637847орпhghjhgydjjknxjzhcnjkdvnxk": {},
         "Python": {},
         "Java": {},
         "C++": {},
@@ -103,7 +102,6 @@ def register_superjob(key):
 
 def get_vacancies_superjob(key):
     count_of_language = {
-        "linuuuuxerахахахахахахаххаааахаххахахахахахаххахахахахах": {},
         "Python": {},
         "Java": {},
         "JS": {},
