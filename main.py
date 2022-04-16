@@ -13,7 +13,6 @@ def predict_salary(from_salary, to_salary):
         return from_salary * 1.2
     elif to_salary:
         return to_salary * 0.8
-    return None
 
 
 def predict_rub_salary_hh(vacancy):
@@ -23,7 +22,6 @@ def predict_rub_salary_hh(vacancy):
         valute = vacancy["salary"]["currency"]
         if valute == "RUR":
             return predict_salary(from_salary, to_salary)
-    return None
 
 
 def predict_rub_salary_sj(vacancy):
@@ -32,29 +30,6 @@ def predict_rub_salary_sj(vacancy):
     valute = vacancy["currency"]
     if valute == "rub":
         return predict_salary(payment_from, payment_to)
-    return None
-
-
-def get_vacancies_hhru():
-    count_of_language = {
-        "Python": {},
-        "Java": {},
-        "C++": {},
-        "C#": {},
-        "Rust": {},
-        "Assembly": {},
-        "1C": {}
-    }
-
-    for language in count_of_language:
-        found, processed, average = get_language_stats_hh(language)
-        count_of_language[language] = {
-            "found": found,
-            "processed": processed,
-            "average": average
-        }
-
-    return count_of_language
 
 
 def get_language_stats_hh(language):
@@ -73,10 +48,7 @@ def get_language_stats_hh(language):
         }
 
         response = requests.get(url, params=payload)
-        try:
-            response.raise_for_status()
-        except:
-            break
+        response.raise_for_status()
                 
         res_json = response.json()
         for vacancy in res_json["items"]:
@@ -89,10 +61,14 @@ def get_language_stats_hh(language):
         if page >= res_json['pages'] - 1:
                 break
 
-    if processed != 0:
+    if processed:
         average //= processed
 
-    return found, processed, average
+    return {
+        "found": found,
+        "processed": processed,
+        "average": average
+        }
 
 
 def register_superjob(key):
@@ -107,27 +83,6 @@ def register_superjob(key):
     response.raise_for_status()
     return response.json()["access_token"]
 
-
-def get_vacancies_superjob(key):
-    count_of_language = {
-        "Python": {},
-        "Java": {},
-        "JS": {},
-        "C++": {},
-        "C#": {},
-        "PHP": {},
-        "1C": {}
-    }
-
-    for language in count_of_language:
-        found, processed, average = get_language_stats_sj(language, key)
-        count_of_language[language] = {
-            "found": found,
-            "processed": processed,
-            "average": average
-        }
-
-    return count_of_language
 
 def get_language_stats_sj(language, key):
     found = 0
@@ -149,10 +104,7 @@ def get_language_stats_sj(language, key):
             "count": 100
         }
         response = requests.get(url, headers=headers, params=payload)
-        try:
-            response.raise_for_status()
-        except:
-            break
+        response.raise_for_status()
 
         res_json = response.json()
         for vacancy in res_json["objects"]:
@@ -166,10 +118,14 @@ def get_language_stats_sj(language, key):
         if not res_json['more']:
                 break
 
-    if processed != 0:
+    if processed:
         average //= processed
 
-    return found, processed, average
+    return {
+        "found": found,
+        "processed": processed,
+        "average": average
+        }
 
 
 def return_beautiful_table(statistics, title):
@@ -200,15 +156,45 @@ def return_beautiful_table(statistics, title):
 if __name__ == "__main__":
     load_dotenv()
     sj_key = os.environ.get('KEY')
+    
+    count_of_language = {
+        "Python": {},
+        "Java": {},
+        "C++": {},
+        "C#": {},
+        "Rust": {},
+        "Ruby": {},
+        "1C": {}
+    }
+
+    for language in count_of_language:
+        try:
+            count_of_language[language] = get_language_stats_hh(language)
+        except RuntimeError:
+            count_of_language[language] = {
+                "found": 0,
+                "processed": 0,
+                "average": 0
+            }
     print(
         return_beautiful_table(
-            get_vacancies_hhru(),
+            count_of_language,
             "HeadHunter Moscow"
         ),
         end="\n\n"
     )
+
+    for language in count_of_language:
+        try:
+            count_of_language[language] = get_language_stats_sj(language, sj_key)
+        except RuntimeError:
+            count_of_language[language] = {
+                "found": 0,
+                "processed": 0,
+                "average": 0
+            }
     print(
         return_beautiful_table(
-            get_vacancies_superjob(sj_key),
+            count_of_language,
             "SuperJob Moscow"
     ))
